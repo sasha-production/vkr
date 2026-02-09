@@ -19,9 +19,9 @@ variable "subnet_a_name" {
 }
 
 variable "subnet_a_cidr" {
-  type        = string
+  type        = tuple([string])
   description = "CIDR блок для первой подсети"
-  default     = "10.10.1.0/24"
+  default     = ["192.168.1.0/24"]
 }
 
 variable "zone1" {
@@ -44,9 +44,9 @@ variable "subnet_b_description" {
 }
 
 variable "subnet_b_cidr" {
-  type        = string
+  type        = tuple([string])
   description = "CIDR блок для второй подсети"
-  default     = "10.10.2.0/24"
+  default     = ["192.168.2.0/24"]
 }
 
 variable "zone2" {

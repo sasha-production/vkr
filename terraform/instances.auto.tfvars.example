@@ -1,0 +1,23 @@
+instances = {
+  "web-server-1" = {
+    zone      = "ru-central1-a"
+    cores     = 2
+    memory    = 4
+    disk_size = 30
+    disk_type = "network-ssd"
+  }
+  "db-server-1" = {
+    zone      = "ru-central1-b"
+    cores     = 4
+    memory    = 8
+    disk_size = 50
+    disk_type = "network-hdd"
+  }
+  "app-server-1" = {
+    zone      = "ru-central1-a"
+    cores     = 2
+    memory    = 2
+    disk_size = 20
+    disk_type = "network-hdd"
+  }
+}
