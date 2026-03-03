@@ -17,7 +17,7 @@ resource "yandex_compute_instance" "vm" {
   allow_stopping_for_update = true
   platform_id               = var.vm_platform_id
   zone                      = each.value.zone
-
+  hostname = each.key
   resources {
     cores  = each.value.cores
     memory = each.value.memory
@@ -33,7 +33,7 @@ resource "yandex_compute_instance" "vm" {
   }
 
   metadata = {
-    ssh-keys = "${var.username}:${var.ssh_public_key}"
+    user-data = "${file("./declaration.yaml")}"
   }
 
   scheduling_policy {

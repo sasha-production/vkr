@@ -1,0 +1,39 @@
+#cloud-config
+datasource:
+  Ec2:
+    strict_id: false
+ssh_pwauth: no
+users:
+- name: sasha
+  sudo: "ALL=(ALL) NOPASSWD:ALL"
+  shell: /bin/bash
+  groups: sudo
+  ssh_authorized_keys:
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJOimr/02oNNGOs54NTU3MUHuPjUWvSy06RFMwvApHn3 sasha@machine
+write_files:
+  - path: "/usr/local/etc/docker-start.sh"
+    permissions: "755"
+    content: |
+      #!/bin/bash
+
+      # Docker
+      echo "Installing Docker"
+      sudo apt update -y && sudo apt install docker.io -y
+      echo "Grant user access to Docker"
+      sudo usermod -aG docker ${USER}
+      newgrp docker
+
+    defer: true
+  - path: "/usr/local/etc/docker-main.sh"
+    permissions: "755"
+    content: |
+      #!/bin/bash
+
+      # Docker run container
+      docker pull hello-world:latest
+      docker run hello-world
+
+    defer: true
+runcmd:
+  - [su, sasha, -c, "/usr/local/etc/docker-start.sh"]
+  - [su, sasha, -c, "/usr/local/etc/docker-main.sh"]
