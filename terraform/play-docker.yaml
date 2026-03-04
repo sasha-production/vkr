@@ -1,0 +1,81 @@
+#play-docker.yaml
+---
+- name: Установка docker
+  hosts: all
+  become: true
+  tasks:
+    - name: Добавление GPG-ключа Docker
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Добавление репозитория Docker
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu noble stable
+        state: present
+
+    - name: Установка Docker Engine
+      apt:
+        name: docker-ce
+        state: present
+
+    - name: Добавление текущего пользователя в группу docker
+      user:
+        name: sasha
+        append: yes
+        groups: docker
+
+    - name: Меняем владельца на docker для /mnt папки
+      file:
+        path: /mnt
+        owner: root
+        group: docker
+        recurse: yes
+
+- name: Создание и настройка Swarm кластера
+  hosts: manager
+  gather_facts: false
+  tasks:
+    - name: Инициализация Swarm кластера
+      command: docker swarm init
+      ignore_errors: true
+      register: swarm_init_output
+      changed_when: false
+    - debug:
+        var: swarm_init_output.stdout
+    - set_fact:
+        join_command: "{{ swarm_init_output.stdout_lines[4] }}"
+
+- name: Присоединение узлов к кластеру
+  hosts: nodes
+  gather_facts: false
+
+  tasks:
+    - name: Присоединение к кластеру
+      command: "{{ hostvars['manager'].join_command }}"
+      changed_when: false
+      ignore_errors: true
+      register: swarm_join_output
+    - debug:
+        var: swarm_join_output.stdout
+
+#  В зависимости от того добавляем или удаляем метки, нужно будет изменить `changed_when` параметр заменить на true/false.
+- name: Настройка меток для узлов кластера
+  hosts: manager
+  gather_facts: false
+
+  tasks:
+    - name: Добавление меток для узлов кластера
+      command: docker node update --label-add {{ item.label }} {{ item.node }}
+      with_items: "{{ node_labels }}"
+#      changed_when: false
+
+#    - name: Удаление меток для узлов кластера
+#      command: docker node update --label-rm {{ item.label }} {{ item.node }}
+#      with_items: "{{ node_labels }}"
+#      changed_when: true
+
+  vars:
+    node_labels:
+      - { label: "TAG=airflow", node: "app-server-1" }
+      - { label: "TAG=observing", node: "db-server-1" }
