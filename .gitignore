@@ -41,3 +41,4 @@ key.json
 *.lock.hcl
 
 *venv/
+*versions.tf
