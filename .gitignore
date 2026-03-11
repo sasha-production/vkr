@@ -40,3 +40,4 @@ key.json
 # for state lock file
 *.lock.hcl
 
+*venv/
