@@ -1,0 +1,168 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:latest
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+    networks:
+      - airflow-network
+
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+    networks:
+      - airflow-network
+
+  airflow-webserver:
+    image: apache/airflow:2.7.1
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
+      - AIRFLOW__CORE__FERNET_KEY=${FERNET_KEY}
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__WEBSERVER__SECRET_KEY=${WEBSERVER_SECRET_KEY}
+    volumes:
+      - airflow-dags:/opt/airflow/dags
+      - airflow-logs:/opt/airflow/logs
+      - airflow-plugins:/opt/airflow/plugins
+      - airflow-config:/opt/airflow/config
+    command: webserver
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      replicas: 1
+    networks:
+      - airflow-network
+    ports:
+      - "8080:8080"
+
+  airflow-scheduler:
+    image: apache/airflow:2.7.1
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
+      - AIRFLOW__CORE__FERNET_KEY=${FERNET_KEY}
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    volumes:
+      - airflow-dags:/opt/airflow/dags
+      - airflow-logs:/opt/airflow/logs
+      - airflow-plugins:/opt/airflow/plugins
+      - airflow-config:/opt/airflow/config
+    command: scheduler
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      replicas: 1
+    networks:
+      - airflow-network
+
+  airflow-worker:
+    image: apache/airflow:2.7.1
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
+      - AIRFLOW__CORE__FERNET_KEY=${FERNET_KEY}
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    volumes:
+      - airflow-dags:/opt/airflow/dags
+      - airflow-logs:/opt/airflow/logs
+      - airflow-plugins:/opt/airflow/plugins
+      - airflow-config:/opt/airflow/config
+    command: celery worker
+    deploy:
+      mode: global
+      placement:
+        constraints:
+          - "node.labels.TAG==executor"
+    networks:
+      - airflow-network
+
+  airflow-flower:
+    image: apache/airflow:2.7.1
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
+      - AIRFLOW__CORE__FERNET_KEY=${FERNET_KEY}
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    command: celery flower
+    volumes:
+      - airflow-config:/opt/airflow/config
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      replicas: 1
+    networks:
+      - airflow-network
+    ports:
+      - "5555:5555"
+
+networks:
+  airflow-network:
+    driver: overlay
+
+volumes:
+  postgres-data:
+    driver: local
+    
+  airflow-dags:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=192.168.1.24,rw,nfsvers=4,soft,timeo=30,retrans=3
+      device: :/srv/nfs/airflow/dags
+      
+  airflow-logs:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=192.168.1.24,rw,nfsvers=4,soft,timeo=30,retrans=3
+      device: :/srv/nfs/airflow/logs
+      
+  airflow-plugins:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=192.168.1.24,rw,nfsvers=4,soft,timeo=30,retrans=3
+      device: :/srv/nfs/airflow/plugins
+      
+  airflow-config:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=192.168.1.24,ro,nfsvers=4,soft,timeo=30,retrans=3
+      device: :/srv/nfs/airflow/config
