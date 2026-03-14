@@ -1,0 +1,43 @@
+mappings:
+  # Маппинг метрик Airflow в формат Prometheus
+  - match: "airflow.*.*.*.*"
+    name: "airflow_${2}_${3}"
+    labels:
+      job: "airflow"
+      component: "${1}"
+      task: "${4}"
+      
+  - match: "airflow.dag.*.*.*"
+    name: "airflow_dag_${2}_${3}"
+    labels:
+      dag_id: "${1}"
+      
+  - match: "airflow.task.*.*.*.*"
+    name: "airflow_task_${2}_${3}"
+    labels:
+      dag_id: "${1}"
+      task_id: "${4}"
+      
+  # Метрики операций
+  - match: "airflow.*.operator_successes.*"
+    name: "airflow_operator_successes"
+    labels:
+      operator: "${3}"
+      
+  - match: "airflow.*.operator_failures.*"
+    name: "airflow_operator_failures"
+    labels:
+      operator: "${3}"
+      
+  # Системные метрики
+  - match: "airflow.pool.*.*"
+    name: "airflow_pool_${2}"
+    labels:
+      pool: "${1}"
+      
+  - match: "airflow.executor.*"
+    name: "airflow_executor_${1}"
+    
+  # Celery метрики
+  - match: "airflow.celery.*"
+    name: "airflow_celery_${1}"

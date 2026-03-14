@@ -1,0 +1,111 @@
+groups:
+  - name: node_alerts
+    interval: 30s
+    rules:
+      - alert: NodeDown
+        expr: up{job="node-exporter"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Node {{ $labels.node_name }} is down"
+          description: "Node {{ $labels.node_name }} has been down for more than 2 minutes"
+
+      - alert: HighCPUUsage
+        expr: 100 - (avg by (node_name) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.node_name }}"
+          description: "CPU usage is above 80% for more than 5 minutes"
+
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.node_name }}"
+          description: "Memory usage is above 85% for more than 5 minutes"
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low disk space on {{ $labels.node_name }}"
+          description: "Disk space is below 10% on {{ $labels.node_name }}"
+
+  - name: container_alerts
+    interval: 30s
+    rules:
+      - alert: ContainerDown
+        expr: time() - container_last_seen > 60
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.container_name }} is down"
+          description: "Container {{ $labels.container_name }} hasn't been seen for 1 minute"
+
+      - alert: HighContainerCPU
+        expr: rate(container_cpu_usage_seconds_total[5m]) * 100 > 200
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage in container {{ $labels.container_name }}"
+          description: "Container CPU usage is above 200% for 5 minutes"
+
+  - name: airflow_alerts
+    interval: 30s
+    rules:
+      - alert: AirflowWebserverDown
+        expr: up{service="airflow-webserver"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Airflow webserver is down"
+          description: "Airflow webserver has been down for 1 minute"
+
+      - alert: AirflowSchedulerDown
+        expr: up{service="airflow-scheduler"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Airflow scheduler is down"
+          description: "Airflow scheduler has been down for 1 minute"
+
+      - alert: TooManyFailedTasks
+        expr: increase(airflow_task_instance_failed[10m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Many failed tasks detected"
+          description: "More than 10 tasks have failed in the last 10 minutes"
+
+  - name: database_alerts
+    interval: 30s
+    rules:
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database is not responding"
+
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+          description: "Redis is not responding"
