@@ -1,0 +1,358 @@
+version: '3.8'
+
+networks:
+  airflow-network:
+    driver: overlay
+    attachable: true
+  monitoring-network:
+    driver: overlay
+    attachable: true
+
+volumes:
+  # Airflow volumes (NFS)
+  postgres-data:
+    driver: local
+  airflow-dags:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=192.168.1.24,rw,nfsvers=4,soft,timeo=30,retrans=3
+      device: :/srv/nfs/airflow/dags
+  airflow-logs:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=192.168.1.24,rw,nfsvers=4,soft,timeo=30,retrans=3
+      device: :/srv/nfs/airflow/logs
+  airflow-plugins:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=192.168.1.24,rw,nfsvers=4,soft,timeo=30,retrans=3
+      device: :/srv/nfs/airflow/plugins
+  airflow-config:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=192.168.1.24,ro,nfsvers=4,soft,timeo=30,retrans=3
+      device: :/srv/nfs/airflow/config  
+  # Monitoring volumes
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+configs:
+  prometheus_config:
+    file: ./prometheus/prometheus.yml
+  prometheus_rules:
+    file: ./prometheus/alert.rules
+  alertmanager_config:
+    file: ./alertmanager/config.yml
+  grafana_datasource:
+    file: ./grafana/provisioning/datasources/datasource.yml
+  grafana_dashboard:
+    file: ./grafana/provisioning/dashboards/dashboard.yml
+  grafana_containers:
+    file: ./grafana/provisioning/dashboards/docker_containers.json
+  grafana_services:
+    file: ./grafana/provisioning/dashboards/monitor_services.json
+  grafana_nginx:
+    file: ./grafana/provisioning/dashboards/nginx_container.json
+
+services:
+  # ============ AIRFLOW CORE SERVICES ============
+  redis:
+    image: redis:latest
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+    networks:
+      - airflow-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+    networks:
+      - airflow-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  airflow-webserver:
+    image: apache/airflow:2.7.1
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
+      - AIRFLOW__CORE__FERNET_KEY=${FERNET_KEY}
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__WEBSERVER__SECRET_KEY=${WEBSERVER_SECRET_KEY}
+      # StatsD для метрик
+      - AIRFLOW__METRICS__STATSD_ON=True
+      - AIRFLOW__METRICS__STATSD_HOST=statsd-exporter
+      - AIRFLOW__METRICS__STATSD_PORT=9125
+      - AIRFLOW__METRICS__STATSD_PREFIX=airflow
+    volumes:
+      - airflow-dags:/opt/airflow/dags
+      - airflow-logs:/opt/airflow/logs
+      - airflow-plugins:/opt/airflow/plugins
+      - airflow-config:/opt/airflow/config
+    command: webserver
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      replicas: 1
+    networks:
+      - airflow-network
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  airflow-scheduler:
+    image: apache/airflow:2.7.1
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
+      - AIRFLOW__CORE__FERNET_KEY=${FERNET_KEY}
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      # StatsD для метрик
+      - AIRFLOW__METRICS__STATSD_ON=True
+      - AIRFLOW__METRICS__STATSD_HOST=statsd-exporter
+      - AIRFLOW__METRICS__STATSD_PORT=9125
+      - AIRFLOW__METRICS__STATSD_PREFIX=airflow
+    volumes:
+      - airflow-dags:/opt/airflow/dags
+      - airflow-logs:/opt/airflow/logs
+      - airflow-plugins:/opt/airflow/plugins
+      - airflow-config:/opt/airflow/config
+    command: scheduler
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      replicas: 1
+    networks:
+      - airflow-network
+
+  airflow-worker:
+    image: apache/airflow:2.7.1
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
+      - AIRFLOW__CORE__FERNET_KEY=${FERNET_KEY}
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      # StatsD для метрик
+      - AIRFLOW__METRICS__STATSD_ON=True
+      - AIRFLOW__METRICS__STATSD_HOST=statsd-exporter
+      - AIRFLOW__METRICS__STATSD_PORT=9125
+      - AIRFLOW__METRICS__STATSD_PREFIX=airflow
+    volumes:
+      - airflow-dags:/opt/airflow/dags
+      - airflow-logs:/opt/airflow/logs
+      - airflow-plugins:/opt/airflow/plugins
+      - airflow-config:/opt/airflow/config
+    command: celery worker
+    deploy:
+      mode: global
+      placement:
+        constraints:
+          - "node.labels.TAG==executor"
+    networks:
+      - airflow-network
+
+  airflow-flower:
+    image: apache/airflow:2.7.1
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
+      - AIRFLOW__CORE__FERNET_KEY=${FERNET_KEY}
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    command: celery flower
+    volumes:
+      - airflow-config:/opt/airflow/config
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      replicas: 1
+    networks:
+      - airflow-network
+    ports:
+      - "5555:5555"
+
+  # ============ MONITORING SERVICES ============
+  
+  prometheus:
+    image: prom/prometheus:v3.10.0
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    volumes:
+      - prometheus_data:/prometheus
+    configs:
+      - source: prometheus_config
+        target: /etc/prometheus/prometheus.yml
+      - source: prometheus_rules
+        target: /etc/prometheus/alert.rules
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - "node.labels.TAG==observer"
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+    networks:
+      - monitoring-network
+      - airflow-network
+    ports:
+      - "9090:9090"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  alertmanager:
+    image: prom/alertmanager:v0.31.1
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
+    configs:
+      - source: alertmanager_config
+        target: /etc/alertmanager/config.yml
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - "node.labels.TAG==observer"
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    networks:
+      - monitoring-network
+    ports:
+      - "9093:9093"
+
+  nodeexporter:
+    image: prom/node-exporter:v1.10.2
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    #pid: host
+    #network_mode: host
+    ports:
+      - "9100:9100"  # Публикуем порт
+    deploy:
+      mode: global
+    networks:
+      - monitoring-network
+    environment:
+      - NODE_NAME={{.Node.Hostname}}
+
+  grafana:
+    image: grafana/grafana:12.4.0
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    configs:
+      - source: grafana_datasource
+        target: /etc/grafana/provisioning/datasources/datasource.yml
+      - source: grafana_dashboard
+        target: /etc/grafana/provisioning/dashboards/dashboard.yml
+      - source: grafana_containers
+        target: /etc/grafana/provisioning/dashboards/docker_containers.json
+      - source: grafana_services
+        target: /etc/grafana/provisioning/dashboards/monitor_services.json
+      - source: grafana_nginx
+        target: /etc/grafana/provisioning/dashboards/nginx_container.json
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - "node.labels.TAG==observer"
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    networks:
+      - monitoring-network
+    ports:
+      - "3000:3000"
+
+  pushgateway:
+    image: prom/pushgateway:v1.11.2
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.TAG == observer
+    networks:
+      - monitoring-network
+    ports:
+      - "9091:9091"
