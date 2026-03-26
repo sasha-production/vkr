@@ -21,14 +21,30 @@ jobs:
       
       - name: Install tools
         run: |
-          pip install flake8 bandit # black
+          pip install flake8 bandit pylint # black
       
 #      - name: Check formatting
 #        run: black --check dags/
-      
+
       - name: Lint
         run: flake8 dags/ --max-line-length=120 --count --statistics
-      
-      - name: Security scan
-        run: bandit -r dags/ -ll
+
+      - name: Static analysis with pylint
+        run: |
+          pylint dags/ \
+            --fail-under=8.0 \
+            --disable=import-error,no-name-in-module \
+            --exit-zero \
+            --output-format=colorized
+        continue-on-error: true
+
+      # 5. Анализ безопасности с bandit
+      - name: Security analysis with bandit
+        run: |
+          bandit -r dags/ \
+            --format=sarif \
+            #--output=bandit-results.sarif \
+            --severity-level high \
+            --confidence-level high
+
       - run: echo "🍏 This job's status is ${{ job.status }}."
