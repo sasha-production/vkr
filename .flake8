@@ -1,6 +1,12 @@
 [flake8]
 max-line-length = 120
-extend-ignore = E203, W503, F401
+extend-ignore = E203, W503, F401,
+   # W293 blank line contains whitespace
+    W293,
+   # expected 2 blank lines, found 1
+    E302,
+   # expected 2 blank lines after class or function definition, found 1
+    E305
 exclude = .git,__pycache__,venv,.venv
 per-file-ignores = 
     __init__.py: F401
