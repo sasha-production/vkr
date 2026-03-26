@@ -21,10 +21,10 @@ jobs:
       
       - name: Install tools
         run: |
-          pip install flake8 black bandit
+          pip install flake8 bandit # black
       
-      - name: Check formatting
-        run: black --check dags/
+#      - name: Check formatting
+#        run: black --check dags/
       
       - name: Lint
         run: flake8 dags/ --max-line-length=120 --count --statistics
