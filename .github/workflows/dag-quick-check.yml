@@ -1,0 +1,32 @@
+name: Quick DAG Check
+
+on:
+  push:
+    branches: [ feature/* ]
+    paths:
+      - 'dags/**'
+
+jobs:
+  quick-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      
+      - name: Install tools
+        run: |
+          pip install flake8 black bandit
+      
+      - name: Check formatting
+        run: black --check dags/
+      
+      - name: Lint
+        run: flake8 dags/ --max-line-length=120 --count --statistics
+      
+      - name: Security scan
+        run: bandit -r dags/ -ll

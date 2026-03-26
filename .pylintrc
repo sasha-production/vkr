@@ -1,0 +1,16 @@
+[MASTER]
+ignore=CVS
+
+[MESSAGES CONTROL]
+disable=
+    import-error,
+    no-name-in-module,
+    too-few-public-methods,
+    fixme
+
+[BASIC]
+good-names=i,j,k,ex,Run,_,dag,task
+
+[DESIGN]
+max-args=7
+max-locals=20
