@@ -42,7 +42,7 @@ jobs:
       - name: Security analysis with bandit
         run: |
           bandit -r dags/ \
-            --format=sarif \
+            --format=json \
             #--output=bandit-results.sarif \
             --severity-level high \
             --confidence-level high
