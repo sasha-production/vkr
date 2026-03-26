@@ -13,12 +13,12 @@ jobs:
     steps:
       - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
       - run: echo "🔎 The name of branch is ${{ github.ref }} and repository is ${{ github.repository }}."
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
       
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: '3.12'
       
       - name: Install tools
         run: |
