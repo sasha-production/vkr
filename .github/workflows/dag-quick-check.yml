@@ -1,24 +1,21 @@
 name: Quick DAG Check1
 run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
-on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'dags/**'
-env:
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+on: [push]
+#on:
+#  push:
+#    branches: [ main ]
+#    paths:
+#      - 'dags/**'
 jobs:
   quick-check:
     runs-on: ubuntu-latest
-    env:
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
       - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
       - run: echo "🔎 The name of branch is ${{ github.ref }} and repository is ${{ github.repository }}."
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       
