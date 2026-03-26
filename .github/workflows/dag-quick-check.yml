@@ -1,5 +1,5 @@
 name: Quick DAG Check
-
+run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
 on:
   push:
     branches: [ feature/* ]
@@ -11,7 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v4
+      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
+      - run: echo "🔎 The name of branch is ${{ github.ref }} and repository is ${{ github.repository }}."
+      - uses: actions/checkout@v5
       
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -30,3 +32,4 @@ jobs:
       
       - name: Security scan
         run: bandit -r dags/ -ll
+      - run: echo "🍏 This job's status is ${{ job.status }}."
