@@ -3,7 +3,7 @@ from airflow.operators.bash import BashOperator
 from datetime import datetime
 
 with DAG(
-    'test_worker',
+    'test_worker1',
     start_date=datetime(2024, 1, 1),
     schedule_interval=None,
     catchup=False
