@@ -44,7 +44,7 @@ jobs:
           bandit -r dags/ \
             --format=json \
             #--output=bandit-results.sarif \
-            -severity-level high \
-            -confidence-level high
+            --severity-level high \
+            #-confidence-level high
 
       - run: echo "🍏 This job's status is ${{ job.status }}."
