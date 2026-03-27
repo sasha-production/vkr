@@ -19,9 +19,9 @@ jobs:
         with:
           python-version: '3.12'
       
-      - name: Install tools (flake8, bandit, pylint)
+      - name: Install tools (flake8, bandit, pylint, secret-scan)
         run: |
-          pip install flake8 bandit pylint
+          pip install flake8 bandit pylint secret-scan
 
       - name: Lint (flake8)
         run: flake8 dags/ --max-line-length=120 --count --statistics
@@ -40,6 +40,9 @@ jobs:
         run: |
           bandit -r dags/ \
             --format=json \
+
+      - name: Scan for secrets
+        run: secret-scan dags/     # scanner exits with code 1 if secrets are found, which will fail the workflow
 
       - run: echo "🍏 This job's status is ${{ job.status }}."
       - run: echo "Static analisys on vulnerability completed"
