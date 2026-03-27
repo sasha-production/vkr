@@ -1,5 +1,5 @@
-name: Quick DAG Check1
-run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
+name:  SAST dag check
+run-name: ${{ github.actor }} is running out GitHub Actions workflow 🚀
 on: [push]
 #on:
 #  push:
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
-      - run: echo "🔎 The name of branch is ${{ github.ref }} and repository is ${{ github.repository }}."
+      - run: echo "🔎 The name of branch is ${{ github.ref }} and repository is ."
       - uses: actions/checkout@v5
       
       - name: Setup Python
@@ -19,14 +19,11 @@ jobs:
         with:
           python-version: '3.12'
       
-      - name: Install tools
+      - name: Install tools (flake8, bandit, pylint)
         run: |
-          pip install flake8 bandit pylint # black
-      
-#      - name: Check formatting
-#        run: black --check dags/
+          pip install flake8 bandit pylint
 
-      - name: Lint
+      - name: Lint (flake8)
         run: flake8 dags/ --max-line-length=120 --count --statistics
 
       - name: Static analysis with pylint
@@ -45,3 +42,4 @@ jobs:
             --format=json \
 
       - run: echo "🍏 This job's status is ${{ job.status }}."
+      - run: echo "Static analisys on vulnerability completed"
