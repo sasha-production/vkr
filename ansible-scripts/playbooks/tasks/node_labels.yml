@@ -1,0 +1,23 @@
+---
+- name: Get current node labels
+  command: docker node inspect {{ item.node }} --format '{{ "{{ .Spec.Labels }}" }}'
+  loop: "{{ node_labels }}"
+  register: current_labels
+  changed_when: false
+  ignore_errors: yes
+
+- name: Add or update node labels
+  command: "docker node update --label-add {{ item.item.label }} {{ item.item.node }}"
+  loop: "{{ current_labels.results }}"
+  when: 
+    - item.item.label is defined
+    - item.stdout is defined
+    - item.item.label not in item.stdout
+  changed_when: true
+  register: label_update
+
+- name: Display label update results
+  debug:
+    msg: "Label {{ item.item.label }} added to {{ item.item.node }}"
+  loop: "{{ label_update.results | default([]) }}"
+  when: item is changed

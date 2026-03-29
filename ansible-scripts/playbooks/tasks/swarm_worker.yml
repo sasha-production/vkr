@@ -1,0 +1,26 @@
+---
+- name: Get join token from manager
+  set_fact:
+    join_token: "{{ hostvars[groups['manager'][0]].worker_token.stdout }}"
+    manager_ip: "{{ hostvars[groups['manager'][0]].ansible_default_ipv4.address }}"
+  when: hostvars[groups['manager'][0]].worker_token.stdout is defined
+
+- name: Check if node is already in swarm
+  command: docker info --format '{{ "{{ .Swarm.LocalNodeState }}" }}'
+  register: swarm_status
+  changed_when: false
+  failed_when: false
+
+- name: Join worker to swarm cluster
+  command: "docker swarm join --token {{ join_token }} {{ manager_ip }}:2377"
+  register: swarm_join
+  when: 
+    - join_token is defined
+    - manager_ip is defined
+    - swarm_status.stdout != "active"
+  ignore_errors: yes
+
+- name: Display join result
+  debug:
+    msg: "Node joined the swarm cluster"
+  when: swarm_join is defined and swarm_join.rc == 0

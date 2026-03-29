@@ -1,0 +1,10 @@
+---
+# Node type
+node_type: worker
+
+# Node labels for workers
+node_labels:
+  - { label: "TAG=executor", node: "{{ inventory_hostname }}" }
+  - { label: "TAG=observing", node: "{{ inventory_hostname }}" }
+  - { label: "TAG=airflow", node: "{{ inventory_hostname }}" }
+  - { label: "TAG=storage", node: "{{ inventory_hostname }}" }

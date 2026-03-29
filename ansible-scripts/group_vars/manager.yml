@@ -1,0 +1,11 @@
+---
+# Node type
+node_type: manager
+
+# Swarm configuration
+swarm_advertise_addr: "{{ ansible_default_ipv4.address }}"
+swarm_listen_addr: "0.0.0.0"
+
+# Node labels for manager
+node_labels:
+  - { label: "TAG=control-plane", node: "manager" }

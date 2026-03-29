@@ -1,0 +1,41 @@
+---
+- name: Setup Docker Engine on all hosts
+  hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Include Docker setup tasks
+      import_tasks: tasks/docker_setup.yml
+  tags:
+    - docker
+    - setup
+
+- name: Initialize Docker Swarm cluster
+  hosts: manager
+  gather_facts: false
+  tasks:
+    - name: Include Swarm manager tasks
+      import_tasks: tasks/swarm_manager.yml
+  tags:
+    - swarm
+    - manager
+
+- name: Join worker nodes to Swarm cluster
+  hosts: nodes
+  gather_facts: false
+  tasks:
+    - name: Include Swarm worker tasks
+      import_tasks: tasks/swarm_worker.yml
+  tags:
+    - swarm
+    - worker
+
+- name: Configure node labels
+  hosts: manager
+  gather_facts: false
+  tasks:
+    - name: Include node labels tasks
+      import_tasks: tasks/node_labels.yml
+  tags:
+    - swarm
+    - labels
