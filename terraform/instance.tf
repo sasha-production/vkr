@@ -9,7 +9,7 @@ resource "yandex_compute_disk" "boot_disk" {
   image_id = var.image_id
 }
 
-# Создание виртуальных машин
+# Создание виртуальных машин через итерацию (for_each)
 resource "yandex_compute_instance" "vm" {
   for_each = var.instances
   

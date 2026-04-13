@@ -1,8 +1,10 @@
+# network resource
 resource "yandex_vpc_network" "network" {
   name        = var.network_name
   description = "Network name for vkr"
 }
 
+# subnet resource 
 resource "yandex_vpc_subnet" "subnet-a" {
   name           = var.subnet_a_name
   v4_cidr_blocks = var.subnet_a_cidr
