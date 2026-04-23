@@ -1,13 +1,12 @@
 from datetime import datetime, timedelta
 from airflow import DAG
-# from airflow.providers.postgres.operators.postgres import PostgresOperator
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 from airflow.sensors.external_task import ExternalTaskSensor
 from airflow.operators.empty import EmptyOperator
 
 DAG_ID = "fct_sales_brand_mart"
 DEFAULT_ARGS = {
-    "owner": "sasha",
+    "owner": "ignatov",
     "depends_on_past": False,
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
@@ -27,6 +26,7 @@ INSERT INTO dm.sales_brand_mart (
     month,
     brand,
     category,
+    country_of_prod,
     analog_eu_brand,
     region,
     segment,
@@ -41,6 +41,7 @@ SELECT
     d.month,
     p.brand,
     p.category,
+    p.country_of_prod,
     p.analog_eu_brand,
     c.region,
     c.segment,
@@ -62,6 +63,7 @@ GROUP BY
     d.month,
     p.brand,
     p.category,
+    p.country_of_prod,
     p.analog_eu_brand,
     c.region,
     c.segment;

@@ -1,14 +1,14 @@
 from datetime import datetime, timedelta
 
 from airflow import DAG
-# from airflow.providers.postgres.operators.postgres import PostgresOperator
+from airflow.sensors.external_task import ExternalTaskSensor
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 from airflow.operators.empty import EmptyOperator
 
 
 DAG_ID = "dag_transform_to_ods_fact"
 DEFAULT_ARGS = {
-    "owner": "sasha",
+    "owner": "ignatov",
     "depends_on_past": False,
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
@@ -71,22 +71,16 @@ INSERT INTO dwh.ods_products (
 SELECT
     product_code,
     product_name,
-    NULL AS category,
-    'ELMI' AS brand,
-    NULL AS analog_eu_brand,
-    NULL AS technical_params,
-    NULL AS country_of_prod,
+    category,
+    brand,
+    analog_eu_brand,
+    technical_params,
+    country_of_prod,
     CURRENT_DATE,
     '9999-12-31',
     TRUE,
     NOW()
-FROM (
-    SELECT DISTINCT
-        product_code,
-        product_name
-    FROM dwh.raw_sales
-    ORDER BY product_code,product_name
-) t;
+FROM dwh.raw_products;
 
 -- ОБНОВЛЕНИЕ СКЛАДОВ
 TRUNCATE TABLE dwh.ods_warehouses CASCADE;
@@ -120,6 +114,37 @@ FROM (
         country,
         warehouse_type
     FROM dwh.raw_warehouses_excel
+) t;
+
+-- оновление ods_suppliers
+TRUNCATE TABLE dwh.ods_suppliers CASCADE;
+
+INSERT INTO dwh.ods_suppliers (
+    supplier_code,
+    supplier_name,
+    country,
+    city,
+    valid_from,
+    valid_to,
+    is_current,
+    load_dttm
+)
+SELECT
+    supplier_code,
+    supplier_name,
+    country,
+    city,
+    CURRENT_DATE,
+    '9999-12-31',
+    TRUE,
+    NOW()
+FROM (
+    SELECT DISTINCT
+        supplier_code,
+        supplier_name,
+        country,
+        city
+    FROM dwh.raw_suppliers
 ) t;
 """
 
@@ -164,6 +189,38 @@ LEFT JOIN dwh.dim_date d
 ORDER BY d.date_id;
 """
 
+CREATE_FACT_PURCHASES_SQL = """
+DELETE FROM dwh.fact_sales
+WHERE date_id = CURRENT_DATE;
+
+INSERT INTO dwh.fact_purchases (
+    purchase_date,
+    supplier_id,
+    product_id,
+    warehouse_id,
+    quantity,
+    price,
+    amount,
+    load_dttm
+)
+SELECT
+    rp.doc_date,
+    s.supplier_id,
+    p.product_id,
+    w.warehouse_id,
+    rp.quantity,
+    rp.price,
+    rp.amount,
+    NOW()
+FROM dwh.raw_purchases rp
+JOIN dwh.ods_suppliers s
+    ON rp.supplier_code = s.supplier_code
+JOIN dwh.ods_products p
+    ON rp.product_code = p.product_code
+JOIN dwh.ods_warehouses w
+    ON rp.warehouse_code = w.warehouse_code;
+    """
+
 with DAG(
     DAG_ID,
     default_args=DEFAULT_ARGS,
@@ -173,6 +230,7 @@ with DAG(
     start = EmptyOperator(
         task_id="start",
     )
+
 
     create_ods_data = SQLExecuteQueryOperator(
         task_id="create_ods_data",
@@ -186,8 +244,14 @@ with DAG(
         sql=CREATE_FACT_SALES_SQL,
     )
 
+    create_fact_purchases = SQLExecuteQueryOperator(
+        task_id="create_fact_purchases",
+        conn_id=POSTGRES_CONN_ID,
+        sql=CREATE_FACT_PURCHASES_SQL,
+    )
+
     end = EmptyOperator(
         task_id="end",
     )
 
-    start >> create_ods_data >> create_fact_sales >> end
+    start >> sensor_on_raw_layer >> create_ods_data >> create_fact_sales >> create_fact_purchases >> end
